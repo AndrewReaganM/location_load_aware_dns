@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Traditional mechanisms for load balancing clients across multiple services (round-robin DNS) have a number of drawbacks, though they are very easy to implement. Often those who host services available over the internet would like to be able to dynamically change DNS records quickly, however the DNS system is not very conducive to such rapid changes.
+Traditional mechanisms for load balancing clients across multiple services (round-robin DNS) have a number of drawbacks, though they are very easy to implement. Often those who host services available over the internet would like to be able to dynamically change DNS records based on the status of their services, however the DNS system is not very conducive to such rapid changes.
 
 I propose utilizing existing DNS systems to provide higher quality domain name resolution services using both location and load aware plugins. In the system proposed here, load reported by a node (node being defined as an external IP where a service can be accessed), and a variable accuracy location code sent from DNS clients to the resolver. The combination of these two allows for selecting the optimal node for a user to connect to. This document will discuss the implementation of the software to be ran on a node, the DNS client software and location selection strategy, and the system by which nodes are ranked for a given hostname. Critically, things not discussed are how this would work with the DNS system as defined in the RFCs, and the security of the node-to-DNS server connection.
 
@@ -83,3 +83,11 @@ The `dnsSort()` function returns a list of nodes, and it is up to the DNS server
 ## Client DNS Response
 
 Client DNS responses work very similarly to how DNS currently works, with the exception that the order of the response is relevant. Clients should work their way down the list in the case that the first result is unreachable.
+
+## Testing
+
+It is difficult to test DNS systems in a meaningful way without test networks that mimic the topology you are working with. Testing this system was done locally using multiple "example nodes" and a "dns client" that were meant to emulate the existence of nodes and clients requesting node information.
+
+Results were consistent with the design. In the case that one node was closer or had signifigantly lower load, it was ranked higher. Nodes that reported a 10 load or experienced an outage were removed from the results, as is desirable.
+
+In the future it would be ideal to test this out in a larger network setting, however that would be best to do after implementing it in existing DNS mechanisms.
