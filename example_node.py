@@ -1,3 +1,13 @@
+"""
+Andrew Massey
+Operating Systems Theory
+Fall 2020
+Dr. Christan Grant
+
+Final Project
+example_node.py
+"""
+
 import binascii
 import socket
 import json
@@ -8,7 +18,7 @@ import secrets
 
 if __name__ == "__main__":
 
-    format = "[N1] %(asctime)s: %(message)s"
+    format = "[N] %(asctime)s: %(message)s"
     logging.basicConfig(format=format, level=logging.INFO, datefmt="%H:%M:%S")
 
     logging.info("Node Service Starting")

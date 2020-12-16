@@ -1,14 +1,25 @@
+"""
+Andrew Massey
+Operating Systems Theory
+Fall 2020
+Dr. Christan Grant
+
+Final Project
+dns_server.py
+"""
+
 from _thread import *
 import logging
 import socket
 import threading
-import time
 import json
 import math
 
 ANSWER_MAX = 4
 DNS_PORT = 9999
 PORT = 12001
+
+loadWeight = 0.6 # 0 means no weight on load, 1 means full weight on load
 
 loadInfo = {"test": "data"}
 
@@ -20,7 +31,7 @@ def handleNodeThreads():
     sock = socket.socket()
 
     sock.bind(('', PORT))
-    sock.listen(15)
+    sock.listen(50)
     logging.info("[T1] Binded to port")
 
     ######################### Parallelize Later ######################
@@ -132,18 +143,38 @@ def dnsSort(validNodes, question):
         if validNodes[node]["load"] == 10:
             del validNodes[node]
 
-    # Calculate euclidean distance for each node
+    # Calculate euclidean distance for each node, remove if load=10
+    rawDist = []
+    rawLoad = []
+    i=0
     for node in validNodes:
-            validNodes[node]["dist"] = euclideanDist(validNodes[node]["loc"], question["loc"])
+        if validNodes[node]["load"] == 10:
+            del validNodes[node]
+        else:
+            rawDist.append(euclideanDist(validNodes[node]["loc"], question["loc"]))
+            rawLoad.append(validNodes[node]["load"])
+            i+=1
 
-    # Optimize list and send to client
+    # Optimize list and send to client 
+    # Normalize the distance vector
+    normalizedDist = [float(x)/max(rawDist) for x in rawDist] # Effectively a score
+    normalizedLoad = [float(y)/max(rawLoad) for y in rawLoad]
 
-    return validNodes
+    # Add the normalized back to the dict
+    scoreVec = []
+    i=0
+    for node in validNodes:
+        scoreVec.append((node, ( (1-loadWeight)*normalizedDist[i])+(loadWeight * normalizedLoad[i])) ) # tuple
+        i+=1
+
+    # Sort the list
+    scoreVec.sort(key=lambda x: x[1], reverse=False)
+    
+    return scoreVec
 
 def dnsResponder(conn):
     request_tmp = dns_client.recv(1024)
     client_request = json.loads(request_tmp.decode("utf-8"))
-    #logging.info("DNS Client: {}".format(str(client_request)))
 
     tmpQuestion = client_request["question"] # Convenience variable
 
@@ -165,14 +196,14 @@ def dnsResponder(conn):
         validNodes = loadInfo[client_request["question"]]
         
         # Calculate the distance from the client to each of the nodes
-        validNodes = dnsSort(validNodes, client_request)
+        scoredVec = dnsSort(validNodes, client_request)
 
         # Put UP TO the first ANSWER_MAX elements of validNodes in the response
         i=0
-        for node in validNodes:
+        for node in scoredVec:
             if i >= ANSWER_MAX:
                 break
-            questionResponse["answer"].append(node)
+            questionResponse["answer"].append(node[0])
             i+=1
     try:
         dns_client.send(bytes(json.dumps(questionResponse), encoding="utf-8"))
@@ -195,11 +226,10 @@ if __name__ == "__main__":
     # Open port and listen for DNS requests
     dns_sock = socket.socket()
     dns_sock.bind(('', 10853))
-    dns_sock.listen(5)
+    dns_sock.listen(100)
 
     while True:
-        dns_client, dns_client_addr = dns_sock.accept()
-        logging.info("Connected DNS Client {}".format(str(dns_client_addr)))
-        start_new_thread(dnsResponder, (dns_client,))
+        dns_client, dns_client_addr = dns_sock.accept() # Accept the connection
+        start_new_thread(dnsResponder, (dns_client,)) # Spawn a thread to handle the connection
 
     loadThread.join()
